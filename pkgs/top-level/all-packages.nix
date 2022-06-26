@@ -6863,6 +6863,8 @@ with pkgs;
 
   gtk-frdp = callPackage ../development/libraries/gtk-frdp {};
 
+  gtk-qq = callPackage ../applications/networking/instant-messengers/gtk-qq { };
+
   gtk-vnc = callPackage ../tools/admin/gtk-vnc {};
 
   gup = callPackage ../development/tools/build-managers/gup {};
