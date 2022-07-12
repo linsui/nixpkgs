@@ -33,21 +33,25 @@ const urlToName = url => {
 	}
 }
 
-const downloadFileHttps = (fileName, url, expectedHash, hashType = 'sha1') => {
+const downloadFileHttps = async (fileName, url, expectedHash, hashType = 'sha1') => {
+	await exec('curl', [
+		'-Lo', fileName,
+		'--retry', '3', '--retry-all-errors',
+		'--insecure',
+		url.replace(/registry\.yarnpkg\.com/, 'registry.npm.taobao.org')
+	])
 	return new Promise((resolve, reject) => {
-		https.get(url, (res) => {
-			const file = fs.createWriteStream(fileName)
-			const hash = crypto.createHash(hashType)
-			res.pipe(file)
-			res.pipe(hash).setEncoding('hex')
-			res.on('end', () => {
-				file.close()
-				const h = hash.read()
-				if (h != expectedHash) return reject(new Error(`hash mismatch, expected ${expectedHash}, got ${h}`))
-				resolve()
-			})
-                        res.on('error', e => reject(e))
+		const file = fs.createReadStream(fileName)
+		const hash = crypto.createHash(hashType)
+		file.resume()
+		file.pipe(hash).setEncoding('hex')
+		file.on('end', () => {
+			file.close()
+			const h = hash.read()
+			if (h != expectedHash) return reject(new Error(`hash mismatch, expected ${expectedHash}, got ${h}`))
+			resolve()
 		})
+		file.on('error', e => reject(e))
 	})
 }
 
@@ -118,7 +122,7 @@ const performParallel = tasks => {
 	}
 
 	const workers = []
-	for (let i = 0; i < 4; i++) {
+	for (let i = 0; i < 128; i++) {
 		workers.push(worker())
 	}
 
