@@ -11,10 +11,8 @@
 , python3
 , runtimeShell
 , wrapGAppsHook
-, fehSupport ? false
-, feh
-, imagemagickSupport ? true
-, imagemagick
+, fehSupport ? false, feh
+, imagemagickSupport ? true, imagemagick
 }:
 
 python3.pkgs.buildPythonApplication rec {
@@ -31,19 +29,17 @@ python3.pkgs.buildPythonApplication rec {
   nativeBuildInputs = [
     intltool
     wrapGAppsHook
-    gobject-introspection
   ];
 
-  buildInputs = [
-    gexiv2
-    gobject-introspection
-    gtk3
-    hicolor-icon-theme
-    libnotify
-    librsvg
-  ];
-
-  propagatedBuildInputs = with python3.pkgs; [
+  propagatedBuildInputs = [
+   gexiv2
+   gobject-introspection
+   gtk3
+   hicolor-icon-theme
+   libnotify
+   librsvg
+  ]
+  ++ (with python3.pkgs; [
     beautifulsoup4
     configobj
     dbus-python
@@ -55,17 +51,14 @@ python3.pkgs.buildPythonApplication rec {
     pygobject3
     requests
     setuptools
-  ]
+  ])
   ++ lib.optional fehSupport feh
   ++ lib.optional imagemagickSupport imagemagick;
 
   doCheck = false;
 
-  # Prevent double wrapping, let the Python wrapper use the args in preFixup.
-  dontWrapGApps = true;
-
-  preFixup = ''
-    makeWrapperArgs+=("''${gappsWrapperArgs[@]}")
+  postInstall = ''
+    wrapProgram $out/bin/variety --suffix XDG_DATA_DIRS : ${gtk3}/share/gsettings-schemas/${gtk3.name}/
   '';
 
   prePatch = ''
