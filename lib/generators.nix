@@ -20,6 +20,41 @@ let
   libAttr = lib.attrsets;
 
   inherit (lib) isFunction;
+
+  /* Take a predicate function that tells it whether to stop recursing and apply
+     a function to a recursive attrset to flatten it. The function takes a list
+     of the names and returns a list of flattened attrsets.
+
+     Example:
+       flattenAttrsCond
+         # never stop recursing
+         (as: true)
+         (path: value: [ { "${lib.concatStringsSep "." path}" = value; } ] )
+         { a.b = 1; c.d = 2; }
+         => { "a.b" = 1; "c.d" = 2; }
+
+     Type:
+       flattenAttrsCond :: (AttrSet -> Bool) -> ([String] -> a -> AttrSet) -> AttrSet -> AttrSet
+  */
+  flattenAttrsCond =
+    with lib;
+    # A function, given the attribute set the recursion is currently at, determine if stop recursion.
+    cond:
+    # A function, given a reversed list of attribute names and a value, returns a name value pair.
+    f:
+    # Attribute set to flatten.
+    set:
+    let
+      recurse = path:
+        let
+          g = name: value:
+            if isAttrs value && !(cond value)
+            then (recurse (path ++ [ name ]) value)
+            else f (path ++ [ name ]) value;
+        in
+        set': concatLists (mapAttrsToList g set');
+    in
+    foldl recursiveUpdate { } (recurse [ ] set);
 in
 
 rec {
@@ -214,21 +249,28 @@ rec {
         let mkKeyValue = mkKeyValueDefault { } " = " k;
         in concatStringsSep "\n" (map (kv: "\t" + mkKeyValue kv) (lib.toList v));
 
-      # converts { a.b.c = 5; } to { "a.b".c = 5; } for toINI
-      gitFlattenAttrs = let
-        recurse = path: value:
-          if isAttrs value && !lib.isDerivation value then
-            lib.mapAttrsToList (name: value: recurse ([ name ] ++ path) value) value
-          else if length path > 1 then {
-            ${concatStringsSep "." (lib.reverseList (tail path))}.${head path} = value;
-          } else {
-            ${head path} = value;
-          };
-      in attrs: lib.foldl lib.recursiveUpdate { } (lib.flatten (recurse [ ] attrs));
-
       toINI_ = toINI { inherit mkKeyValue mkSectionName; };
     in
-      toINI_ (gitFlattenAttrs attrs);
+      toINI_ (flattenAttrsCond lib.isDerivation
+      (path: value: with lib;
+      if length path > 1 then [{ "${concatStringsSep "." (init path)}"."${last path}" = value; }]
+      else [{ "${head path}" = value; }]
+      )
+      attrs);
+
+  # mkKeyValueDefault wrapper that handles dconf INI quirks.
+  # The main differences of the format is that it requires strings to be quoted.
+  mkDconfKeyValue = mkKeyValueDefault { mkValueString = v: toString (lib.gvariant.mkValue v); } "=";
+
+  # Generates INI in dconf keyfile style. See https://help.gnome.org/admin/system-admin-guide/stable/dconf-keyfiles.html.en
+  # for details.
+  toDconfINI = attrs: toINI { mkKeyValue = mkDconfKeyValue; } (
+    flattenAttrsCond lib.gvariant.isGVariant
+      (path: value: with lib;
+      if length path > 1 then [{ "${concatStringsSep "/" (init path)}"."${last path}" = value; }]
+      else [{ "${head path}" = value; }]
+      )
+      attrs);
 
   /* Generates JSON from an arbitrary (non-function) value.
     * For more information see the documentation of the builtin.
