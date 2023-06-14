@@ -272,6 +272,12 @@ rec {
       )
       attrs);
 
+  # Generates dconf locks file. Each key is a line. See https://help.gnome.org/admin/system-admin-guide/stable/dconf-lockdown.html.en
+  # for ditails.
+  toDconfLocks = with lib; attrs: concatStringsSep "\n" (attrNames (flattenAttrsCond isBool
+    (path: value: optionals value [{ "/${concatStringsSep "/" path}" = value; }])
+    attrs));
+
   /* Generates JSON from an arbitrary (non-function) value.
     * For more information see the documentation of the builtin.
     */

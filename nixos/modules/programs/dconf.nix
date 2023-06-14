@@ -9,6 +9,24 @@ let
       nativeBuildInputs = [ (lib.getBin pkgs.dconf) ];
     } "dconf compile $out ${dir}";
 
+  # Recursively lock values in settings
+  recursiveLock =
+    settings: locks:
+    (lib.mapAttrsRecursive
+      (path: value:
+      lib.optionalAttrs value
+        (lib.mapAttrsRecursiveCond
+          (value': !lib.gvariant.isGVariant value')
+          (path': value': true)
+          (lib.foldl'
+            (root: name: if lib.hasAttr "${name}" root then root."${name}" else
+            throw "${lib.concatStringsSep "." (lib.tail path)} doesn't exist in settings.")
+            { v = settings; }
+            path)
+        )
+      )
+      { v = locks; }).v;
+
   # Check if dconf keyfiles are valid
   checkDconfKeyfiles = dir: pkgs.runCommand "check-dconf-keyfiles"
     {
@@ -104,6 +122,36 @@ let
             };
           }
         '';
+      };
+      locks = lib.mkOption {
+        type = with lib.types; let
+          nestedBool = either bool (attrsOf nestedBool);
+        in
+        attrsOf nestedBool;
+        default = { };
+        description = lib.mdDoc ''
+          An attrset used to lockdown the dconf settings. This generates a lock file.
+          If a value is true, the key will be locked.
+        '';
+        example = literalExpression ''
+          {
+            com.raggesilver.BlackBox = {
+              scrollback-lines = true;
+              theme-dark = false;
+            };
+          }
+        '';
+      };
+      lockSubpaths = lib.mkOption {
+        type = let nestedBool = with lib.types; either bool (attrsOf nestedBool); in nestedBool;
+        default = false;
+        description = lib.mdDoc ''
+          Similiar to locks but the whole subpath is locked. Please note that this
+          is a dconf lock generator only based on the `databases.*.settings` Nix
+          value. The generated keyfiles are not considered. Therefore, `"a/b/c"`
+          won't be locked by `a.b.c` and vice versa.
+        '';
+        example = "true";
       };
     };
   };
