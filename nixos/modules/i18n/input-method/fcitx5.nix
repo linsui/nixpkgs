@@ -137,12 +137,30 @@ in
         optionalFile =
           p: f: v:
           lib.optionalAttrs (v != { }) { "xdg/fcitx5/${p}".text = f v; };
+        mkKeyValue =
+          with lib.generators;
+          mkKeyValueDefault {
+            mkValueString = (
+              v:
+              mkValueStringDefault { } (
+                if v == true then
+                  "True"
+                else if v == false then
+                  "False"
+                else
+                  v
+              )
+            );
+          } "=";
       in
       lib.attrsets.mergeAttrsList [
-        (optionalFile "config" (lib.generators.toINI { }) cfg.settings.globalOptions)
-        (optionalFile "profile" (lib.generators.toINI { }) cfg.settings.inputMethod)
+        (optionalFile "config" (lib.generators.toINI { inherit mkKeyValue; }) cfg.settings.globalOptions)
+        (optionalFile "profile" (lib.generators.toINI { inherit mkKeyValue; }) cfg.settings.inputMethod)
         (lib.concatMapAttrs (
-          name: value: optionalFile "conf/${name}.conf" (lib.generators.toINIWithGlobalSection { }) value
+          name: value:
+          optionalFile "conf/${name}.conf" (lib.generators.toINIWithGlobalSection {
+            inherit mkKeyValue;
+          }) value
         ) cfg.settings.addons)
       ];
 
