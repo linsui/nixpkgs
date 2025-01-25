@@ -8,7 +8,7 @@
 
 python3Packages.buildPythonApplication rec {
   pname = "yutto";
-  version = "2.0.0-rc.7";
+  version = "2.0.0-rc.8";
   pyproject = true;
 
   disabled = python3Packages.pythonOlder "3.9";
@@ -18,7 +18,7 @@ python3Packages.buildPythonApplication rec {
     owner = "yutto-dev";
     repo = "yutto";
     tag = "v${version}";
-    hash = "sha256-yNAQmpR65FSCbciSSdO2eHUJcE6Dl8J4dqq6GHt5NDQ=";
+    hash = "sha256-prRcJ0/NjL7XpS+adZ+RoeCmtHCluMVUPix2qy/93w8=";
   };
 
   build-system = with python3Packages; [ hatchling ];
