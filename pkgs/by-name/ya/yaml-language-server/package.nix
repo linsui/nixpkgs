@@ -31,6 +31,9 @@ stdenv.mkDerivation rec {
     yarn
     nodejs
   ];
+
+  buildInputs = [ nodejs ];
+
   strictDeps = true;
 
   configurePhase = ''
